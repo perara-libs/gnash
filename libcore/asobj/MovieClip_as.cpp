@@ -1,6 +1,6 @@
 // MovieClip_as.cpp:  ActionScript "MovieClip" class, for Gnash.
 //
-//   Copyright (C) 2009, 2010, 2011, 2012, 2014, 2016
+//   Copyright (C) 2009, 2010, 2011, 2012, 2014, 2016, 2017
 //   Free Software Foundation, Inc.
 //
 // This program is free software; you can redistribute it and/or modify
@@ -1092,7 +1092,7 @@ movieclip_getURL(const fn_call& fn)
     as_object* movieclip = ensure<ValidThis>(fn);
 
     std::string urlstr;
-    std::string target;
+    as_value target;
 
     as_value val;
     if (fn.nargs > 2)
@@ -1123,12 +1123,25 @@ movieclip_getURL(const fn_call& fn)
         case 3:
             // This argument has already been handled.
         case 2:
-             target = fn.arg(1).to_string();
+             target = fn.arg(1);
         case 1:
              urlstr = fn.arg(0).to_string();
              break;
     }
 
+    movie_root& m = getRoot(fn);
+    std::string targetstr;
+    if (!target.is_undefined()) {
+        targetstr = target.to_string();
+    }
+
+    // If the URL uses "FSCommand:" scheme, it is a message for the player
+    // or host container.
+    StringNoCaseEqual noCaseCompare;
+    if (noCaseCompare(urlstr.substr(0, 10), "FSCommand:")) {
+        m.handleFsCommand(urlstr.substr(10), targetstr);
+        return as_value();
+    }
 
     MovieClip::VariablesMethod method =
         static_cast<MovieClip::VariablesMethod>(toInt(val, getVM(fn)));
@@ -1139,10 +1152,8 @@ movieclip_getURL(const fn_call& fn)
         // Get encoded vars.
         vars = getURLEncodedVars(*movieclip);
     }
-
-    movie_root& m = getRoot(fn);
     
-    m.getURL(urlstr, target, vars, method);
+    m.getURL(urlstr, targetstr, vars, method);
 
     return as_value();
 }
